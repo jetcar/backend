@@ -16,13 +16,14 @@ public class App {
     // Endpoint to start MobileId authentication
     // MobileId endpoints
     @PostMapping("/mobileid/start")
-    public ResponseEntity<?> startMobileId(@RequestParam String personalCode, @RequestParam String phoneNumber) {
+    public ResponseEntity<?> startMobileId(@RequestParam String country, @RequestParam String personalCode, @RequestParam String phoneNumber) {
         String sessionId = java.util.UUID.randomUUID().toString();
         String code = String.valueOf((int)(Math.random() * 9000) + 1000);
         MobileIdSessionStore.sessions.put(sessionId, false);
         java.util.Map<String, String> response = new java.util.HashMap<>();
         response.put("sessionId", sessionId);
         response.put("code", code);
+        response.put("country", country);
         return ResponseEntity.ok(response);
     }
 
@@ -44,13 +45,14 @@ public class App {
 
     // SmartId endpoints
     @PostMapping("/smartid/start")
-    public ResponseEntity<?> startSmartId(@RequestParam String personalCode) {
+    public ResponseEntity<?> startSmartId(@RequestParam String country, @RequestParam String personalCode) {
         String sessionId = java.util.UUID.randomUUID().toString();
         String code = String.valueOf((int)(Math.random() * 9000) + 1000);
         SmartIdSessionStore.sessions.put(sessionId, false);
         java.util.Map<String, String> response = new java.util.HashMap<>();
         response.put("sessionId", sessionId);
         response.put("code", code);
+        response.put("country", country);
         return ResponseEntity.ok(response);
     }
 
