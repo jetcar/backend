@@ -1,3 +1,9 @@
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.boot.autoconfigure.security: DEBUG
+    com.nimbusds: DEBUG
 server:
   port: 8443
   ssl:
@@ -6,3 +12,8 @@ server:
     key-store-password: changeit
     key-store-type: PKCS12
     key-alias: springboot
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    # password: your_redis_password   # Uncomment and set if needed
