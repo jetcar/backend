@@ -69,11 +69,28 @@ public class OidcTokenController {
             response.put("error", "Invalid or expired authorization code");
             return response;
         }
-        String accessToken = java.util.UUID.randomUUID().toString();
-        oidcSessionStore.storeToken(accessToken, user);
-        // Generate a real JWT for id_token
+        // Generate a proper JWT for access_token
+        String scope = params.getOrDefault("scope", "openid profile email");
+        String accessToken = null;
         try {
-            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+            JWTClaimsSet accessTokenClaims = new JWTClaimsSet.Builder()
+                .issuer("https://localhost:8443")
+                .subject(user.getSub())
+                .audience(clientId)
+                .claim("scope", scope)
+                .expirationTime(new java.util.Date(System.currentTimeMillis() + 3600 * 1000))
+                .issueTime(new java.util.Date())
+                .build();
+            JWSHeader accessTokenHeader = new JWSHeader.Builder(JWSAlgorithm.RS256)
+                .keyID("springboot")
+                .build();
+            SignedJWT accessSignedJWT = new SignedJWT(accessTokenHeader, accessTokenClaims);
+            accessSignedJWT.sign(new RSASSASigner(jwtPrivateKey));
+            accessToken = accessSignedJWT.serialize();
+            oidcSessionStore.storeToken(accessToken, user);
+
+            // Generate a real JWT for id_token
+            JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder()
                 .issuer("https://localhost:8443")
                 .subject(user.getSub())
                 .audience(clientId)
@@ -82,8 +99,13 @@ public class OidcTokenController {
                 .claim("country", user.getCountry())
                 .claim("phone_number", user.getPhoneNumber())
                 .expirationTime(new java.util.Date(System.currentTimeMillis() + 3600 * 1000))
-                .issueTime(new java.util.Date())
-                .build();
+                .issueTime(new java.util.Date());
+
+            if (user.getNonce() != null && !user.getNonce().isEmpty()) {
+                claimsBuilder.claim("nonce", user.getNonce());
+            }
+
+            JWTClaimsSet claims = claimsBuilder.build();
             JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
                 .keyID("springboot")
                 .build();

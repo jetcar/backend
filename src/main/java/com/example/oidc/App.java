@@ -41,6 +41,19 @@ public class App {
                     ip = request.getRemoteAddr();
                 }
                 logMsg.append(" | IP: ").append(ip);
+                // Log all headers
+                java.util.Enumeration<String> headerNames = request.getHeaderNames();
+                if (headerNames.hasMoreElements()) {
+                    logMsg.append(" | Headers: [");
+                    boolean firstHeader = true;
+                    while (headerNames.hasMoreElements()) {
+                        String header = headerNames.nextElement();
+                        if (!firstHeader) logMsg.append(", ");
+                        logMsg.append(header).append("=").append(request.getHeader(header));
+                        firstHeader = false;
+                    }
+                    logMsg.append("]");
+                }
                 // Log all parameters
                 java.util.Enumeration<String> paramNames = request.getParameterNames();
                 if (paramNames.hasMoreElements()) {
@@ -94,7 +107,8 @@ public class App {
             @RequestParam(required = false) String redirect_uri,
             @RequestParam(required = false) String response_type,
             @RequestParam(required = false) String scope,
-            @RequestParam(required = false) String state) {
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String nonce) {
         MobileIdSession session = oidcSessionStore.getMobileIdSession(sessionId);
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("sessionId", sessionId);
@@ -111,8 +125,8 @@ public class App {
             OidcClient client = clientRegistry.getClient(client_id);
             if (client != null) {
                 String code = java.util.UUID.randomUUID().toString();
-                // Store user info for OIDC flow
-                OidcSessionStore.UserInfo user = new OidcSessionStore.UserInfo(session.personalCode, "MobileId User", "mobileid@example.com", session.country, session.phoneNumber);
+                // Store user info for OIDC flow, including nonce
+                OidcSessionStore.UserInfo user = new OidcSessionStore.UserInfo(session.personalCode, "MobileId User", "mobileid@example.com", session.country, session.phoneNumber, nonce);
                 oidcSessionStore.storeCode(code, user);
                 StringBuilder redirectUrl = new StringBuilder();
                 redirectUrl.append(client.getRedirectUri()).append("?code=").append(code);
