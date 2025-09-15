@@ -15,6 +15,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.example.oidc.dto.MobileIdSession;
+import com.example.oidc.dto.SmartIdSession;
+import com.example.oidc.storage.OidcSessionStore;
+import com.example.oidc.storage.UserInfo;
 
 @SpringBootApplication
 @RestController
@@ -126,7 +130,7 @@ public class App {
             if (client != null) {
                 String code = java.util.UUID.randomUUID().toString();
                 // Store user info for OIDC flow, including nonce
-                OidcSessionStore.UserInfo user = new OidcSessionStore.UserInfo(session.personalCode, "MobileId User", "mobileid@example.com", session.country, session.phoneNumber, nonce);
+                UserInfo user = new UserInfo(session.personalCode, "MobileId User", "mobileid@example.com", session.country, session.phoneNumber, nonce);
                 oidcSessionStore.storeCode(code, user);
                 StringBuilder redirectUrl = new StringBuilder();
                 redirectUrl.append(client.getRedirectUri()).append("?code=").append(code);
@@ -139,12 +143,13 @@ public class App {
         return ResponseEntity.ok(response);
     }
 
-    // SmartId endpoints
+    // Endpoint to start SmartId authentication
     @PostMapping("/smartid/start")
     public ResponseEntity<?> startSmartId(@RequestParam String country, @RequestParam String personalCode) {
         String sessionId = java.util.UUID.randomUUID().toString();
         String code = String.valueOf((int)(Math.random() * 9000) + 1000);
-        SmartIdSessionStore.sessions.put(sessionId, false);
+        // Store session in Redis using OidcSessionStore
+        oidcSessionStore.storeSmartIdSession(sessionId, new SmartIdSession(false, country, personalCode));
         java.util.Map<String, String> response = new java.util.HashMap<>();
         response.put("sessionId", sessionId);
         response.put("code", code);
@@ -153,36 +158,41 @@ public class App {
     }
 
     @GetMapping("/smartid/check")
-    public ResponseEntity<?> checkSmartId(@RequestParam String sessionId) {
-        Boolean status = SmartIdSessionStore.sessions.get(sessionId);
-        if (status == null) {
-            return ResponseEntity.status(404).body("Session not found");
-        }
-        if (!status && Math.random() > 0.7) {
-            SmartIdSessionStore.sessions.put(sessionId, true);
-            status = true;
-        }
+    public ResponseEntity<?> checkSmartId(
+            @RequestParam String sessionId,
+            @RequestParam(required = false) String client_id,
+            @RequestParam(required = false) String redirect_uri,
+            @RequestParam(required = false) String response_type,
+            @RequestParam(required = false) String scope,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String nonce) {
+        SmartIdSession session = oidcSessionStore.getSmartIdSession(sessionId);
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("sessionId", sessionId);
-        response.put("complete", status);
-        return ResponseEntity.ok(response);
-    }
-
-    // ...existing code...
-    public static class MobileIdSession {
-        public boolean complete;
-        public String country;
-        public String personalCode;
-        public String phoneNumber;
-        public MobileIdSession() {}
-        public MobileIdSession(boolean complete, String country, String personalCode, String phoneNumber) {
-            this.complete = complete;
-            this.country = country;
-            this.personalCode = personalCode;
-            this.phoneNumber = phoneNumber;
+        boolean complete = session != null && true;
+        response.put("complete", complete);
+        // OIDC client validation
+        boolean validClient = client_id != null && clientRegistry.isValidClient(client_id);
+        response.put("validClient", validClient);
+        // Simulate user authorization (for demo, treat complete==true as authorized)
+        boolean authorized = complete;
+        response.put("authorized", authorized);
+        // If authorized and client is valid, add redirectUrl for OIDC flow
+        if (authorized && validClient && session != null) {
+            OidcClient client = clientRegistry.getClient(client_id);
+            if (client != null) {
+                String code = java.util.UUID.randomUUID().toString();
+                // Store user info for OIDC flow, including nonce
+                UserInfo user = new UserInfo(session.personalCode, "SmartId User", "smartid@example.com", session.country, null, nonce);
+                oidcSessionStore.storeCode(code, user);
+                StringBuilder redirectUrl = new StringBuilder();
+                redirectUrl.append(client.getRedirectUri()).append("?code=").append(code);
+                if (state != null) {
+                    redirectUrl.append("&state=").append(state);
+                }
+                response.put("redirectUrl", redirectUrl.toString());
+            }
         }
-    }
-    static class SmartIdSessionStore {
-        static java.util.Map<String, Boolean> sessions = new java.util.concurrent.ConcurrentHashMap<>();
+        return ResponseEntity.ok(response);
     }
 }
