@@ -12,11 +12,10 @@ public class OidcClientRegistry {
     public OidcClientRegistry() {
         // Hardcoded client example
         OidcClient client = new OidcClient(
-            "demo-client-id",
-            "demo-client-secret",
-            "https://localhost:8082/login/oauth2/code/demo",
-            "openid profile email"
-        );
+                "demo-client-id",
+                "demo-client-secret",
+                "https://localhost:8082/login/oauth2/code/demo",
+                "openid profile email");
         clients.put(client.getClientId(), client);
     }
 
@@ -24,8 +23,9 @@ public class OidcClientRegistry {
         return clients.get(clientId);
     }
 
-    public boolean isValidClient(String clientId) {
-        return clients.containsKey(clientId);
+    public OidcClient isValidClient(String clientId, String redirectUri) {
+        OidcClient client = clients.get(clientId);
+        return (client != null && client.getRedirectUri().equals(redirectUri)) ? client : null;
     }
 
     public OidcClient getClientByReturnUri(String returnUri) {
@@ -36,23 +36,4 @@ public class OidcClientRegistry {
         }
         return null;
     }
-}
-
-class OidcClient {
-    private final String clientId;
-    private final String clientSecret;
-    private final String redirectUri;
-    private final String scope;
-
-    public OidcClient(String clientId, String clientSecret, String redirectUri, String scope) {
-        this.clientId = clientId;
-        this.clientSecret = clientSecret;
-        this.redirectUri = redirectUri;
-        this.scope = scope;
-    }
-
-    public String getClientId() { return clientId; }
-    public String getClientSecret() { return clientSecret; }
-    public String getRedirectUri() { return redirectUri; }
-    public String getScope() { return scope; }
 }

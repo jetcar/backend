@@ -17,3 +17,11 @@ spring:
     host: localhost
     port: 6379
     # password: your_redis_password   # Uncomment and set if needed
+mid:
+  client:
+    host-url: "https://tsp.demo.sk.ee/mid-api"
+    relying-party-uuid: "00000000-0000-0000-0000-000000000000"
+    relying-party-name: "DEMO"
+    trust-store: /repo/vscode/backend/config/keystore.p12
+    trust-store-password: "changeit"
+    trust-store-type: "PKCS12"

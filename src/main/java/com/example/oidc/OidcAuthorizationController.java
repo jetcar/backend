@@ -18,6 +18,12 @@ public class OidcAuthorizationController {
         this.clientRegistry = clientRegistry;
     }
 
+    // /authorize is called by an external OIDC client (browser redirect or direct
+    // link) to start the flow.
+    // Example:
+    // https://localhost:8443/authorize?response_type=code&client_id=demo-client-id&redirect_uri=https%3A%2F%2Flocalhost%3A8082%2Flogin%2Foauth2%2Fcode%2Fdemo&scope=openid%20profile%20email&state=xyz&nonce=abc
+    // After validation it redirects to /index.html with the same query params; the
+    // frontend reads them via getOidcParams().
     @GetMapping("/authorize")
     public org.springframework.web.servlet.view.RedirectView authorize(@RequestParam Map<String, String> params) {
         // Convert params to Map<String, List<String>>
@@ -33,8 +39,10 @@ public class OidcAuthorizationController {
             return new org.springframework.web.servlet.view.RedirectView("/error?error=Invalid+authorization+request");
         }
         ClientID clientID = request.getClientID();
-        // Validate client
-        if (clientID == null || !clientRegistry.isValidClient(clientID.getValue())) {
+        URI redirectUri = request.getRedirectionURI();
+        // Validate client (client_id and redirect_uri)
+        if (clientID == null || redirectUri == null
+                || clientRegistry.isValidClient(clientID.getValue(), redirectUri.toString()) != null) {
             return new org.springframework.web.servlet.view.RedirectView("/error?error=Invalid+client_id");
         }
         // Redirect to index.html with all OIDC parameters
