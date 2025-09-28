@@ -1,4 +1,4 @@
-package com.example.oidc;
+package com.example.oidc.service;
 
 import ee.sk.mid.MidClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,7 +11,7 @@ import java.io.InputStream;
 import java.security.KeyStore;
 
 @Configuration
-public class MidClientConfig {
+public class MobileIdClientConfig {
 
     @Bean
     public MidClient midClient(@Value("${mid.client.host-url}") String midClientHostUrl,

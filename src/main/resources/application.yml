@@ -4,6 +4,7 @@ logging:
     org.springframework.web: DEBUG
     org.springframework.boot.autoconfigure.security: DEBUG
     com.nimbusds: DEBUG
+    ee.sk.smartid.rest.LoggingFilter: debug
 server:
   port: 8443
   ssl:
@@ -22,6 +23,17 @@ mid:
     host-url: "https://tsp.demo.sk.ee/mid-api"
     relying-party-uuid: "00000000-0000-0000-0000-000000000000"
     relying-party-name: "DEMO"
-    trust-store: /repo/vscode/backend/config/keystore.p12
+    trust-store: /repo/vscode/backend/config/mobileId.p12
     trust-store-password: "changeit"
     trust-store-type: "PKCS12"
+smartid:
+  client:
+    host-url: "https://sid.demo.sk.ee/smart-id-rp/v2/"
+    relying-party-uuid: "00000000-0000-0000-0000-000000000000"
+    relying-party-name: "DEMO"
+    trust-store: /repo/vscode/backend/config/smartId.p12
+    trust-store-password: "changeit"
+    trust-store-type: "PKCS12"
+    ca-certs:
+      - /repo/vscode/backend/config/sid_demo_sk_ee.crt
+      - /repo/vscode/backend/config/sid_demo_sk_ee2.crt

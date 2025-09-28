@@ -1,4 +1,4 @@
-package com.example.oidc;
+package com.example.oidc.storage;
 
 public class OidcClient {
     private final String clientId;

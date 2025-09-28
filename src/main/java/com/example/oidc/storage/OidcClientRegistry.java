@@ -1,4 +1,4 @@
-package com.example.oidc;
+package com.example.oidc.storage;
 
 import java.util.HashMap;
 import java.util.Map;

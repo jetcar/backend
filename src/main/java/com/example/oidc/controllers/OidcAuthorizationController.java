@@ -1,8 +1,10 @@
-package com.example.oidc;
+package com.example.oidc.controllers;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.example.oidc.storage.OidcClientRegistry;
 import com.nimbusds.oauth2.sdk.AuthorizationRequest;
 import com.nimbusds.oauth2.sdk.id.ClientID;
 import java.net.URI;

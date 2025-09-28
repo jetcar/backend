@@ -1,11 +1,12 @@
 package com.example.oidc.service;
 
-import com.example.oidc.OidcClient;
-import com.example.oidc.OidcClientRegistry;
 import com.example.oidc.dto.MobileIdSession;
+import com.example.oidc.storage.OidcClient;
+import com.example.oidc.storage.OidcClientRegistry;
 import com.example.oidc.storage.OidcSessionStore;
 import com.example.oidc.storage.UserInfo;
 import ee.sk.mid.MidAuthenticationHashToSign;
+import ee.sk.mid.MidAuthenticationIdentity;
 import ee.sk.mid.MidAuthenticationResponseValidator;
 import ee.sk.mid.MidAuthenticationResult;
 import ee.sk.mid.MidClient;
@@ -14,6 +15,7 @@ import ee.sk.mid.rest.dao.MidSessionStatus;
 import ee.sk.mid.MidAuthentication;
 import ee.sk.mid.rest.dao.request.MidAuthenticationRequest;
 import ee.sk.mid.rest.dao.response.MidAuthenticationResponse;
+import ee.sk.smartid.util.CertificateAttributeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +23,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
-
 import java.io.InputStream;
 import java.security.KeyStore;
+import java.security.cert.X509Certificate;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -93,6 +96,8 @@ public class MobileIdService {
         boolean validClient = client != null;
         boolean authorized = false;
         String error = null;
+        MidAuthenticationResult authenticationResult = null;
+        MidAuthentication authentication = null;
 
         if (!validClient) {
             error = "Invalid client";
@@ -110,10 +115,10 @@ public class MobileIdService {
 
                 MidAuthenticationHashToSign authenticationHashToSign = MidAuthenticationHashToSign.newBuilder()
                         .withHashType(MidHashType.SHA256)
-                        .withHashInBase64(session.authenticationHash)
+                        .withHashInBase64(session.getAuthenticationHash())
                         .build();
 
-                MidAuthentication authentication = midClient.createMobileIdAuthentication(sessionStatus,
+                authentication = midClient.createMobileIdAuthentication(sessionStatus,
                         authenticationHashToSign);
 
                 // Load truststore for validator using FileSystemResource and config values
@@ -125,7 +130,7 @@ public class MobileIdService {
 
                 MidAuthenticationResponseValidator validator = new MidAuthenticationResponseValidator(
                         trustStoreInstance);
-                MidAuthenticationResult authenticationResult = validator.validate(authentication);
+                authenticationResult = validator.validate(authentication);
 
                 if (authenticationResult.isValid()) {
                     complete = true;
@@ -150,10 +155,17 @@ public class MobileIdService {
             response.put("error", error);
         }
 
-        if (authorized && validClient && session != null && client != null) {
+        if (authorized && validClient && session != null && client != null && authenticationResult != null) {
+            MidAuthenticationIdentity identityUser = authenticationResult.getAuthenticationIdentity();
             String code = java.util.UUID.randomUUID().toString();
-            UserInfo user = new UserInfo(session.personalCode, "MobileId User", "mobileid@example.com",
-                    session.country, session.phoneNumber, nonce);
+            UserInfo user = new UserInfo(
+                    identityUser.getIdentityCode(),
+                    identityUser.getGivenName(),
+                    identityUser.getSurName(),
+                    identityUser.getCountry(),
+                    getDateOfBirth(identityUser.getIdentityCode()),
+                    session.getPhoneNumber(),
+                    nonce);
             oidcSessionStore.storeCode(code, user);
             StringBuilder redirectUrl = new StringBuilder()
                     .append(client.getRedirectUri()).append("?code=").append(code);
@@ -163,5 +175,24 @@ public class MobileIdService {
             response.put("redirectUrl", redirectUrl.toString());
         }
         return response;
+    }
+
+    public static LocalDate getDateOfBirth(String code) {
+        if (code == null || code.length() < 11) {
+            throw new IllegalArgumentException("Invalid code for extracting date of birth");
+        }
+        try {
+            int year = Integer.parseInt(code.substring(1, 3));
+            int month = Integer.parseInt(code.substring(3, 5));
+            int day = Integer.parseInt(code.substring(5, 7));
+
+            // Adjust year based on the century (assuming 1900s or 2000s)
+            int century = (code.charAt(0) == '3' || code.charAt(0) == '4') ? 1900 : 2000;
+            year += century;
+
+            return LocalDate.of(year, month, day);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to parse date of birth from code", e);
+        }
     }
 }

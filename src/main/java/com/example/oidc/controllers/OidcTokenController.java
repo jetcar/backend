@@ -1,10 +1,12 @@
-package com.example.oidc;
+package com.example.oidc.controllers;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.oidc.storage.UserInfo;
+import com.example.oidc.storage.OidcClient;
+import com.example.oidc.storage.OidcClientRegistry;
 import com.example.oidc.storage.OidcSessionStore;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,16 +76,16 @@ public class OidcTokenController {
         String accessToken = null;
         try {
             JWTClaimsSet accessTokenClaims = new JWTClaimsSet.Builder()
-                .issuer("https://localhost:8443")
-                .subject(user.getSub())
-                .audience(clientId)
-                .claim("scope", scope)
-                .expirationTime(new java.util.Date(System.currentTimeMillis() + 3600 * 1000))
-                .issueTime(new java.util.Date())
-                .build();
+                    .issuer("https://localhost:8443")
+                    .subject(user.getSub())
+                    .audience(clientId)
+                    .claim("scope", scope)
+                    .expirationTime(new java.util.Date(System.currentTimeMillis() + 3600 * 1000))
+                    .issueTime(new java.util.Date())
+                    .build();
             JWSHeader accessTokenHeader = new JWSHeader.Builder(JWSAlgorithm.RS256)
-                .keyID("springboot")
-                .build();
+                    .keyID("springboot")
+                    .build();
             SignedJWT accessSignedJWT = new SignedJWT(accessTokenHeader, accessTokenClaims);
             accessSignedJWT.sign(new RSASSASigner(jwtPrivateKey));
             accessToken = accessSignedJWT.serialize();
@@ -91,15 +93,15 @@ public class OidcTokenController {
 
             // Generate a real JWT for id_token
             JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder()
-                .issuer("https://localhost:8443")
-                .subject(user.getSub())
-                .audience(clientId)
-                .claim("name", user.getName())
-                .claim("email", user.getEmail())
-                .claim("country", user.getCountry())
-                .claim("phone_number", user.getPhoneNumber())
-                .expirationTime(new java.util.Date(System.currentTimeMillis() + 3600 * 1000))
-                .issueTime(new java.util.Date());
+                    .issuer("https://localhost:8443")
+                    .subject(user.getSub())
+                    .audience(clientId)
+                    .claim("name", user.getGivenName())
+                    .claim("email", user.getSurname())
+                    .claim("country", user.getCountry())
+                    .claim("phone_number", user.getPhoneNumber())
+                    .expirationTime(new java.util.Date(System.currentTimeMillis() + 3600 * 1000))
+                    .issueTime(new java.util.Date());
 
             if (user.getNonce() != null && !user.getNonce().isEmpty()) {
                 claimsBuilder.claim("nonce", user.getNonce());
@@ -107,8 +109,8 @@ public class OidcTokenController {
 
             JWTClaimsSet claims = claimsBuilder.build();
             JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
-                .keyID("springboot")
-                .build();
+                    .keyID("springboot")
+                    .build();
             SignedJWT signedJWT = new SignedJWT(header, claims);
             signedJWT.sign(new RSASSASigner(jwtPrivateKey));
             String idToken = signedJWT.serialize();
