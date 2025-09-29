@@ -37,3 +37,9 @@ smartid:
     ca-certs:
       - /repo/vscode/backend/config/sid_demo_sk_ee.crt
       - /repo/vscode/backend/config/sid_demo_sk_ee2.crt
+webeid:
+  ca-certs:
+    - /repo/vscode/backend/config/EE_Certification_Center_Root_CA.pem
+    - /repo/vscode/backend/config/ESTEID-SK_2015.pem
+    - /repo/vscode/backend/config/esteid2018.pem
+  allowed-origin: "https://localhost:3000"

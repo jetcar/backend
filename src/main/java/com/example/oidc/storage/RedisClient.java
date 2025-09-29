@@ -28,6 +28,10 @@ public class RedisClient {
         return redisTemplate.opsForValue().get(key);
     }
 
+    public void delete(String key) {
+        redisTemplate.delete(key);
+    }
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public <T> void setObject(String key, T value, long expiration, TimeUnit timeUnit) {
@@ -51,7 +55,8 @@ public class RedisClient {
 
     public <T> T getObject(String key, Class<T> valueType) {
         String json = getValue(key);
-        if (json == null) return null;
+        if (json == null)
+            return null;
         try {
             return objectMapper.readValue(json, valueType);
         } catch (JsonProcessingException e) {

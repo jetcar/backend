@@ -4,10 +4,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.oidc.dto.IdCardSession;
 import com.example.oidc.dto.MobileIdSession;
 import com.example.oidc.dto.SmartIdSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 @Component
 public class OidcSessionStore {
@@ -21,6 +23,7 @@ public class OidcSessionStore {
     private final RedisClient redisClient;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final String IDCARD_SESSION_PREFIX = "idcard-session:";
 
     @Autowired
     public OidcSessionStore(RedisClient redisClient) {
@@ -109,6 +112,25 @@ public class OidcSessionStore {
             return objectMapper.readValue(json, UserInfo.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize UserInfo for token {}: {}", token, e.getMessage());
+            return null;
+        }
+    }
+
+    // Add this method to support storing IdCardSession by sessionId
+    public void storeIdCardSession(String sessionId, IdCardSession session) {
+        // Store in Redis or in-memory map as appropriate for your implementation
+        // Example for in-memory map:
+        // idCardSessionMap.put(sessionId, session);
+
+        // If using RedisClient:
+        redisClient.setObject(IDCARD_SESSION_PREFIX + sessionId, session);
+    }
+
+    public IdCardSession getIdCardSession(String sessionId) {
+        try {
+            return redisClient.getObject(IDCARD_SESSION_PREFIX + sessionId, IdCardSession.class);
+        } catch (Exception e) {
+            log.error("Failed to get IdCard session {}: {}", sessionId, e.getMessage());
             return null;
         }
     }

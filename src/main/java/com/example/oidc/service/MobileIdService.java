@@ -5,6 +5,7 @@ import com.example.oidc.storage.OidcClient;
 import com.example.oidc.storage.OidcClientRegistry;
 import com.example.oidc.storage.OidcSessionStore;
 import com.example.oidc.storage.UserInfo;
+import com.example.oidc.util.PersonalCodeHelper;
 import ee.sk.mid.MidAuthenticationHashToSign;
 import ee.sk.mid.MidAuthenticationIdentity;
 import ee.sk.mid.MidAuthenticationResponseValidator;
@@ -15,7 +16,6 @@ import ee.sk.mid.rest.dao.MidSessionStatus;
 import ee.sk.mid.MidAuthentication;
 import ee.sk.mid.rest.dao.request.MidAuthenticationRequest;
 import ee.sk.mid.rest.dao.response.MidAuthenticationResponse;
-import ee.sk.smartid.util.CertificateAttributeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +25,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import java.io.InputStream;
 import java.security.KeyStore;
-import java.security.cert.X509Certificate;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
@@ -163,7 +162,7 @@ public class MobileIdService {
                     identityUser.getGivenName(),
                     identityUser.getSurName(),
                     identityUser.getCountry(),
-                    getDateOfBirth(identityUser.getIdentityCode()),
+                    PersonalCodeHelper.getDateOfBirth(identityUser.getIdentityCode()),
                     session.getPhoneNumber(),
                     nonce);
             oidcSessionStore.storeCode(code, user);
@@ -175,24 +174,5 @@ public class MobileIdService {
             response.put("redirectUrl", redirectUrl.toString());
         }
         return response;
-    }
-
-    public static LocalDate getDateOfBirth(String code) {
-        if (code == null || code.length() < 11) {
-            throw new IllegalArgumentException("Invalid code for extracting date of birth");
-        }
-        try {
-            int year = Integer.parseInt(code.substring(1, 3));
-            int month = Integer.parseInt(code.substring(3, 5));
-            int day = Integer.parseInt(code.substring(5, 7));
-
-            // Adjust year based on the century (assuming 1900s or 2000s)
-            int century = (code.charAt(0) == '3' || code.charAt(0) == '4') ? 1900 : 2000;
-            year += century;
-
-            return LocalDate.of(year, month, day);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Failed to parse date of birth from code", e);
-        }
     }
 }

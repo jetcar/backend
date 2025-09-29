@@ -16,7 +16,9 @@ public class MobileIdController {
     }
 
     @PostMapping("/mobileid/start")
-    public ResponseEntity<?> startMobileId(@RequestParam String country, @RequestParam String personalCode,
+    public ResponseEntity<?> startMobileId(
+            @RequestParam String country,
+            @RequestParam String personalCode,
             @RequestParam String phoneNumber,
             @RequestParam(required = false) String client_id,
             @RequestParam(required = false) String redirect_uri) {
