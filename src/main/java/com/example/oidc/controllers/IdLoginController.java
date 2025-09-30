@@ -123,10 +123,10 @@ public class IdLoginController {
         }
 
         // Extract user info from result
-        String subject = CertificateData.getSubjectIdCode(result).orElseThrow();
+        String country = CertificateData.getSubjectCountryCode(result).orElseThrow();
+        String subject = CertificateData.getSubjectIdCode(result).orElseThrow().replaceAll("PNO", "").replaceAll(country + "-","");
         String givenName = CertificateData.getSubjectGivenName(result).orElseThrow();
         String surname = CertificateData.getSubjectSurname(result).orElseThrow();
-        String country = CertificateData.getSubjectCountryCode(result).orElseThrow();
         LocalDate dateOfBirth = PersonalCodeHelper.getDateOfBirth(subject);
 
         // Validate OIDC client
