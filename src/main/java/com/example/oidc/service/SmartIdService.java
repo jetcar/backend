@@ -145,7 +145,7 @@ public class SmartIdService {
                         nonce);
 
                 String base64 = getCertificateBase64(authIdentity.getAuthCertificate());
-                System.out.println("Base64-encoded certificate: " + base64); // Write to console output
+                user.setCert(base64); // set base64 certificate
 
                 oidcSessionStore.storeCode(code, user);
                 StringBuilder redirectUrl = new StringBuilder();

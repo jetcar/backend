@@ -43,3 +43,5 @@ webeid:
     - /repo/vscode/backend/config/ESTEID-SK_2015.pem
     - /repo/vscode/backend/config/esteid2018.pem
   allowed-origin: "https://localhost:3000"
+oidc:
+  issuer: "https://localhost:8443"

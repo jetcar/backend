@@ -51,7 +51,8 @@ public class MobileIdService {
         this.clientRegistry = clientRegistry;
     }
 
-    public Map<String, String> startMobileId(String country, String personalCode, String phoneNumber, String clientId,
+    public Map<String, String> startMobileId(String personalCode, String phoneNumber, String countryCode,
+            String clientId,
             String redirectUri) {
         OidcClient client = clientRegistry.isValidClient(clientId, redirectUri);
         if (client == null) {
@@ -59,11 +60,24 @@ public class MobileIdService {
             errorResponse.put("error", "Invalid client");
             return errorResponse;
         }
+        // Add country code to phone number if not present
+        String fullPhoneNumber = phoneNumber;
+        if (countryCode != null && !phoneNumber.startsWith(countryCode)) {
+            // Remove any leading country code
+            for (String code : new String[] { "+372", "+371", "+370" }) {
+                if (fullPhoneNumber.startsWith(code)) {
+                    fullPhoneNumber = fullPhoneNumber.substring(code.length());
+                    break;
+                }
+            }
+            fullPhoneNumber = countryCode + fullPhoneNumber.replaceFirst("^\\+", "");
+        }
+
         MidAuthenticationHashToSign authenticationHash = MidAuthenticationHashToSign.generateRandomHashOfDefaultType();
         String verificationCode = authenticationHash.calculateVerificationCode();
 
         MidAuthenticationRequest request = MidAuthenticationRequest.newBuilder()
-                .withPhoneNumber(phoneNumber)
+                .withPhoneNumber(fullPhoneNumber)
                 .withNationalIdentityNumber(personalCode)
                 .withHashToSign(authenticationHash)
                 .withLanguage(ee.sk.mid.MidLanguage.ENG)
@@ -75,12 +89,11 @@ public class MobileIdService {
         log.info("Authentication session ID: " + sessionId);
 
         oidcSessionStore.storeMobileIdSession(sessionId,
-                new MobileIdSession(false, country, personalCode, phoneNumber, authenticationHash.getHashInBase64()));
+                new MobileIdSession(false, personalCode, fullPhoneNumber, authenticationHash.getHashInBase64()));
 
         Map<String, String> responseBody = new HashMap<>();
         responseBody.put("sessionId", sessionId);
         responseBody.put("code", verificationCode);
-        responseBody.put("country", country);
         return responseBody;
     }
 
@@ -165,6 +178,18 @@ public class MobileIdService {
                     PersonalCodeHelper.getDateOfBirth(identityUser.getIdentityCode()),
                     session.getPhoneNumber(),
                     nonce);
+
+            // Add base64-encoded certificate to userinfo
+            if (authentication.getCertificate() != null) {
+                try {
+                    String certBase64 = java.util.Base64.getEncoder()
+                            .encodeToString(authentication.getCertificate().getEncoded());
+                    user.setCert(certBase64);
+                } catch (Exception e) {
+                    log.error("Failed to encode certificate for sessionId {}: {}", sessionId, e.getMessage());
+                }
+            }
+
             oidcSessionStore.storeCode(code, user);
             StringBuilder redirectUrl = new StringBuilder()
                     .append(client.getRedirectUri()).append("?code=").append(code);

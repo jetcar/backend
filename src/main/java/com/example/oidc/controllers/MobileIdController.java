@@ -17,13 +17,13 @@ public class MobileIdController {
 
     @PostMapping("/mobileid/start")
     public ResponseEntity<?> startMobileId(
-            @RequestParam String country,
+            @RequestParam String countryCode,
             @RequestParam String personalCode,
             @RequestParam String phoneNumber,
             @RequestParam(required = false) String client_id,
             @RequestParam(required = false) String redirect_uri) {
         return ResponseEntity.ok(
-                mobileIdService.startMobileId(country, personalCode, phoneNumber, client_id, redirect_uri));
+                mobileIdService.startMobileId(personalCode, phoneNumber, countryCode, client_id, redirect_uri));
     }
 
     @GetMapping("/mobileid/check")

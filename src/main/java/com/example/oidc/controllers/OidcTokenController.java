@@ -3,18 +3,14 @@ package com.example.oidc.controllers;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import com.example.oidc.storage.UserInfo;
 import com.example.oidc.storage.OidcClient;
 import com.example.oidc.storage.OidcClientRegistry;
 import com.example.oidc.storage.OidcSessionStore;
-
 import org.springframework.beans.factory.annotation.Autowired;
-
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Value;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
@@ -30,6 +26,8 @@ public class OidcTokenController {
     private PrivateKey jwtPrivateKey;
     @Value("${server.ssl.key-store-password}")
     private String keystorePassword;
+    @Value("${oidc.issuer:https://localhost:8443}")
+    private String issuer;
 
     @Autowired
     public OidcTokenController(OidcSessionStore oidcSessionStore, OidcClientRegistry clientRegistry) {
@@ -76,7 +74,7 @@ public class OidcTokenController {
         String accessToken = null;
         try {
             JWTClaimsSet accessTokenClaims = new JWTClaimsSet.Builder()
-                    .issuer("https://localhost:8443")
+                    .issuer(issuer)
                     .subject(user.getSub())
                     .audience(clientId)
                     .claim("scope", scope)
@@ -93,11 +91,11 @@ public class OidcTokenController {
 
             // Generate a real JWT for id_token
             JWTClaimsSet.Builder claimsBuilder = new JWTClaimsSet.Builder()
-                    .issuer("https://localhost:8443")
+                    .issuer(issuer)
                     .subject(user.getSub())
                     .audience(clientId)
                     .claim("name", user.getGivenName())
-                    .claim("email", user.getSurname())
+                    .claim("surname", user.getSurname())
                     .claim("country", user.getCountry())
                     .claim("phone_number", user.getPhoneNumber())
                     .expirationTime(new java.util.Date(System.currentTimeMillis() + 3600 * 1000))

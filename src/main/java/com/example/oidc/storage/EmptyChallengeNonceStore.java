@@ -3,11 +3,7 @@ package com.example.oidc.storage;
 import eu.webeid.security.challenge.ChallengeNonce;
 import eu.webeid.security.challenge.ChallengeNonceStore;
 
-import java.time.ZonedDateTime;
-
 public class EmptyChallengeNonceStore implements ChallengeNonceStore {
-
-    private static final long DEFAULT_EXPIRATION_SECONDS = 300;
 
     public EmptyChallengeNonceStore() {
         // No-op constructor

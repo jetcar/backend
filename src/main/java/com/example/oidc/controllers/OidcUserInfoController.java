@@ -46,6 +46,7 @@ public class OidcUserInfoController {
             userInfo.put("date_of_birth", user.getDateOfBirth().toString());
         }
         userInfo.put("phone_number", user.getPhoneNumber());
+        userInfo.put("cert", user.getCert());
         return userInfo;
     }
 }
