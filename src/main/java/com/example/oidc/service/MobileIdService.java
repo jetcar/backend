@@ -1,11 +1,14 @@
 package com.example.oidc.service;
 
+import com.example.oidc.dto.MobileIdCheckResponse;
 import com.example.oidc.dto.MobileIdSession;
+import com.example.oidc.dto.MobileIdStartResponse;
 import com.example.oidc.storage.OidcClient;
 import com.example.oidc.storage.OidcClientRegistry;
 import com.example.oidc.storage.OidcSessionStore;
 import com.example.oidc.storage.UserInfo;
 import com.example.oidc.util.PersonalCodeHelper;
+import com.example.oidc.util.RandomCodeGenerator;
 import ee.sk.mid.MidAuthenticationHashToSign;
 import ee.sk.mid.MidAuthenticationIdentity;
 import ee.sk.mid.MidAuthenticationResponseValidator;
@@ -19,15 +22,8 @@ import ee.sk.mid.rest.dao.response.MidAuthenticationResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import java.io.InputStream;
-import java.security.KeyStore;
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class MobileIdService {
@@ -37,27 +33,28 @@ public class MobileIdService {
     private final MidClient midClient;
     private final OidcSessionStore oidcSessionStore;
     private final OidcClientRegistry clientRegistry;
-
-    @Value("${mid.client.trust-store}")
-    private String trustStorePath;
-
-    @Value("${mid.client.trust-store-password}")
-    private String trustStorePassword;
+    private final MidAuthenticationResponseValidator authenticationResponseValidator;
 
     @Autowired
-    public MobileIdService(MidClient midClient, OidcSessionStore oidcSessionStore, OidcClientRegistry clientRegistry) {
+    public MobileIdService(
+            MidClient midClient,
+            OidcSessionStore oidcSessionStore,
+            OidcClientRegistry clientRegistry,
+            @Qualifier("midAuthenticationResponseValidator") MidAuthenticationResponseValidator authenticationResponseValidator) {
         this.midClient = midClient;
         this.oidcSessionStore = oidcSessionStore;
         this.clientRegistry = clientRegistry;
+        this.authenticationResponseValidator = authenticationResponseValidator;
     }
 
-    public Map<String, String> startMobileId(String personalCode, String phoneNumber, String countryCode,
+    public MobileIdStartResponse startMobileId(String personalCode, String phoneNumber, String countryCode,
             String clientId,
             String redirectUri) {
         OidcClient client = clientRegistry.isValidClient(clientId, redirectUri);
         if (client == null) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Invalid client");
+            MobileIdStartResponse errorResponse = new MobileIdStartResponse();
+            errorResponse.sessionId = null;
+            errorResponse.code = null;
             return errorResponse;
         }
         // Add country code to phone number if not present
@@ -91,17 +88,18 @@ public class MobileIdService {
         oidcSessionStore.storeMobileIdSession(sessionId,
                 new MobileIdSession(false, personalCode, fullPhoneNumber, authenticationHash.getHashInBase64()));
 
-        Map<String, String> responseBody = new HashMap<>();
-        responseBody.put("sessionId", sessionId);
-        responseBody.put("code", verificationCode);
+        MobileIdStartResponse responseBody = new MobileIdStartResponse();
+        responseBody.sessionId = sessionId;
+        responseBody.code = verificationCode;
         return responseBody;
     }
 
-    public Map<String, Object> checkMobileId(String sessionId, String clientId, String redirectUri, String responseType,
+    public MobileIdCheckResponse checkMobileId(String sessionId, String clientId, String redirectUri,
+            String responseType,
             String scope, String state, String nonce) {
         MobileIdSession session = oidcSessionStore.getMobileIdSession(sessionId);
-        Map<String, Object> response = new HashMap<>();
-        response.put("sessionId", sessionId);
+        MobileIdCheckResponse response = new MobileIdCheckResponse();
+        response.sessionId = sessionId;
 
         boolean complete = false;
         OidcClient client = clientRegistry.isValidClient(clientId, redirectUri);
@@ -112,11 +110,10 @@ public class MobileIdService {
         MidAuthentication authentication = null;
 
         if (!validClient) {
-            error = "Invalid client";
-            response.put("complete", complete);
-            response.put("validClient", false);
-            response.put("authorized", authorized);
-            response.put("error", error);
+            response.complete = complete;
+            response.validClient = false;
+            response.authorized = authorized;
+            response.error = "Invalid client";
             return response;
         }
 
@@ -133,16 +130,8 @@ public class MobileIdService {
                 authentication = midClient.createMobileIdAuthentication(sessionStatus,
                         authenticationHashToSign);
 
-                // Load truststore for validator using FileSystemResource and config values
-                Resource resource = new FileSystemResource(trustStorePath);
-                KeyStore trustStoreInstance = KeyStore.getInstance("PKCS12");
-                try (InputStream trustStoreStream = resource.getInputStream()) {
-                    trustStoreInstance.load(trustStoreStream, trustStorePassword.toCharArray());
-                }
-
-                MidAuthenticationResponseValidator validator = new MidAuthenticationResponseValidator(
-                        trustStoreInstance);
-                authenticationResult = validator.validate(authentication);
+                // Use injected singleton validator
+                authenticationResult = authenticationResponseValidator.validate(authentication);
 
                 if (authenticationResult.isValid()) {
                     complete = true;
@@ -160,16 +149,16 @@ public class MobileIdService {
             error = "Session not found";
         }
 
-        response.put("complete", complete);
-        response.put("validClient", validClient);
-        response.put("authorized", authorized);
+        response.complete = complete;
+        response.validClient = validClient;
+        response.authorized = authorized;
         if (error != null) {
-            response.put("error", error);
+            response.error = error;
         }
 
         if (authorized && validClient && session != null && client != null && authenticationResult != null) {
             MidAuthenticationIdentity identityUser = authenticationResult.getAuthenticationIdentity();
-            String code = java.util.UUID.randomUUID().toString();
+            String code = RandomCodeGenerator.generateRandomCode();
             UserInfo user = new UserInfo(
                     identityUser.getIdentityCode(),
                     identityUser.getGivenName(),
@@ -196,7 +185,7 @@ public class MobileIdService {
             if (state != null) {
                 redirectUrl.append("&state=").append(state);
             }
-            response.put("redirectUrl", redirectUrl.toString());
+            response.redirectUrl = redirectUrl.toString();
         }
         return response;
     }

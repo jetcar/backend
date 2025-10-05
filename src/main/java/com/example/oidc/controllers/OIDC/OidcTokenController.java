@@ -1,4 +1,4 @@
-package com.example.oidc.controllers;
+package com.example.oidc.controllers.OIDC;
 
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,14 +45,16 @@ public class OidcTokenController {
     }
 
     @PostMapping("/token")
-    public Map<String, Object> token(@RequestParam Map<String, String> params, HttpServletResponse servletResponse) {
-        String code = params.get("code");
+    public Map<String, Object> token(
+            @RequestParam("code") String code,
+            @RequestParam(value = "redirect_uri", required = false) String redirectUri,
+            @RequestParam(value = "scope", required = false, defaultValue = "openid profile email") String scope,
+            HttpServletResponse servletResponse) {
         Map<String, Object> response = new HashMap<>();
         if (code == null || code.isEmpty()) {
             response.put("error", "Missing authorization code");
             return response;
         }
-        String redirectUri = params.get("redirect_uri");
         String clientId = null;
         if (redirectUri != null && !redirectUri.isEmpty()) {
             OidcClient client = clientRegistry.getClientByReturnUri(redirectUri);
@@ -70,7 +72,6 @@ public class OidcTokenController {
             return response;
         }
         // Generate a proper JWT for access_token
-        String scope = params.getOrDefault("scope", "openid profile email");
         String accessToken = null;
         try {
             JWTClaimsSet accessTokenClaims = new JWTClaimsSet.Builder()

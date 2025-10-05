@@ -1,8 +1,10 @@
 package com.example.oidc.controllers;
 
+import com.example.oidc.dto.MobileIdCheckResponse;
+import com.example.oidc.dto.MobileIdStartResponse;
 import com.example.oidc.service.MobileIdService;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,18 +18,17 @@ public class MobileIdController {
     }
 
     @PostMapping("/mobileid/start")
-    public ResponseEntity<?> startMobileId(
+    public MobileIdStartResponse startMobileId(
             @RequestParam String countryCode,
             @RequestParam String personalCode,
             @RequestParam String phoneNumber,
             @RequestParam(required = false) String client_id,
             @RequestParam(required = false) String redirect_uri) {
-        return ResponseEntity.ok(
-                mobileIdService.startMobileId(personalCode, phoneNumber, countryCode, client_id, redirect_uri));
+        return mobileIdService.startMobileId(personalCode, phoneNumber, countryCode, client_id, redirect_uri);
     }
 
     @GetMapping("/mobileid/check")
-    public ResponseEntity<?> checkMobileId(
+    public MobileIdCheckResponse checkMobileId(
             @RequestParam String sessionId,
             @RequestParam(required = false) String client_id,
             @RequestParam(required = false) String redirect_uri,
@@ -35,7 +36,6 @@ public class MobileIdController {
             @RequestParam(required = false) String scope,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String nonce) {
-        return ResponseEntity.ok(
-                mobileIdService.checkMobileId(sessionId, client_id, redirect_uri, response_type, scope, state, nonce));
+        return mobileIdService.checkMobileId(sessionId, client_id, redirect_uri, response_type, scope, state, nonce);
     }
 }

@@ -1,11 +1,12 @@
-package com.example.oidc.service;
+package com.example.oidc.config;
 
 import ee.sk.smartid.SmartIdClient;
+import jakarta.ws.rs.client.Client;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
 
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -13,20 +14,29 @@ import java.security.KeyStore;
 @Configuration
 public class SmartIdClientConfig {
 
-    @Bean
-    public SmartIdClient smartIdClient(@Value("${smartid.client.host-url}") String smartIdClientHostUrl,
-            @Value("${smartid.client.relying-party-uuid}") String smartIdClientRelyingPartyUUID,
-            @Value("${smartid.client.relying-party-name}") String smartIdClientRelyingPartyName,
-            @Value("${smartid.client.trust-store}") String trustStore,
-            @Value("${smartid.client.trust-store-password}") String trustStorePassword) {
-        try {
-            // Load trust store using FileSystemResource
-            Resource resource = new FileSystemResource(trustStore);
-            KeyStore trustStoreInstance = KeyStore.getInstance("PKCS12");
-            try (InputStream trustStoreStream = resource.getInputStream()) {
-                trustStoreInstance.load(trustStoreStream, trustStorePassword.toCharArray());
-            }
+    @Value("${smartid.client.host-url}")
+    private String smartIdClientHostUrl;
 
+    @Value("${smartid.client.relying-party-uuid}")
+    private String smartIdClientRelyingPartyUUID;
+
+    @Value("${smartid.client.relying-party-name}")
+    private String smartIdClientRelyingPartyName;
+
+    @Value("${smartid.client.api-trust-store}")
+    private String apiTrustStore;
+
+    @Value("${smartid.client.api-trust-store-password:}")
+    private String apiTrustStorePassword;
+
+    @Bean
+    public SmartIdClient smartIdClient() {
+        try {
+            KeyStore trustStoreInstance = KeyStore.getInstance("PKCS12");
+            try (InputStream trustStoreStream = new FileSystemResource(apiTrustStore).getInputStream()) {
+                trustStoreInstance.load(trustStoreStream,
+                        apiTrustStorePassword != null ? apiTrustStorePassword.toCharArray() : new char[0]);
+            }
             SmartIdClient client = new SmartIdClient();
             client.setRelyingPartyUUID(smartIdClientRelyingPartyUUID);
             client.setRelyingPartyName(smartIdClientRelyingPartyName);

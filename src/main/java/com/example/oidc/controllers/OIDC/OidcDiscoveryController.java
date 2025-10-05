@@ -1,4 +1,4 @@
-package com.example.oidc.controllers;
+package com.example.oidc.controllers.OIDC;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;

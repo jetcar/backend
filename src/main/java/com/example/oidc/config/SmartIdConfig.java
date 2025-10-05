@@ -3,50 +3,52 @@ package com.example.oidc.config;
 import ee.sk.smartid.AuthenticationResponseValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Primary; // added
+import org.springframework.context.annotation.Primary;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.io.InputStream;
-import java.security.cert.CertificateFactory;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.util.Collections;
 
 @Configuration
-@EnableConfigurationProperties(SmartIdProperties.class)
 public class SmartIdConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SmartIdConfig.class);
 
+    @Value("${smartid.client.trust-store}")
+    private String trustStorePath;
+
+    @Value("${smartid.client.trust-store-password:}")
+    private String trustStorePassword;
+
     @Bean
     @Primary
-    public AuthenticationResponseValidator authenticationResponseValidator(SmartIdProperties props) {
+    public AuthenticationResponseValidator authenticationResponseValidator() {
         try {
             AuthenticationResponseValidator validator = new AuthenticationResponseValidator();
 
-            if (props.getCaCerts() != null) {
-                for (String path : props.getCaCerts()) {
-                    if (path == null || path.isBlank())
-                        continue;
-                    Resource res = new FileSystemResource(path.trim());
-                    if (!res.exists())
-                        continue;
-                    try (InputStream in = res.getInputStream()) {
-                        X509Certificate ca = (X509Certificate) CertificateFactory.getInstance("X.509")
-                                .generateCertificate(in);
-                        // Log the DN (Subject) of the loaded certificate
-                        log.info("Loaded Smart-ID CA certificate from '{}' DN='{}'",
-                                path.trim(), ca.getSubjectX500Principal().getName());
-                        validator.addTrustedCACertificate(ca);
-                    }
+            // Load all certificates from the trust store and add as trusted CAs
+            KeyStore ks = KeyStore.getInstance("PKCS12");
+            try (InputStream is = new FileSystemResource(trustStorePath).getInputStream()) {
+                ks.load(is, trustStorePassword != null ? trustStorePassword.toCharArray() : new char[0]);
+            }
+            for (String alias : Collections.list(ks.aliases())) {
+                Certificate cert = ks.getCertificate(alias);
+                if (cert instanceof X509Certificate) {
+                    log.info("Loaded Smart-ID CA certificate from trust-store '{}' alias='{}' DN='{}'",
+                            trustStorePath, alias, ((X509Certificate) cert).getSubjectX500Principal().getName());
+                    validator.addTrustedCACertificate((X509Certificate) cert);
                 }
             }
 
             return validator;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load Smart-ID CA certificates from smartid.client.ca-certs", e);
+            throw new RuntimeException("Failed to load Smart-ID CA certificates from smartid.client.trust-store", e);
         }
     }
 }

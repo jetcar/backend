@@ -1,13 +1,13 @@
 package com.example.oidc.controllers;
 
+import com.example.oidc.dto.IdCardChallengeResponse;
+import com.example.oidc.dto.IdCardLoginRequest;
+import com.example.oidc.dto.IdCardLoginResponse;
 import com.example.oidc.service.IdcardService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
-
 import java.security.cert.CertificateEncodingException;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/idlogin")
@@ -21,7 +21,7 @@ public class IdLoginController {
     }
 
     @GetMapping("/challenge")
-    public Map<String, Object> challenge(
+    public IdCardChallengeResponse challenge(
             @RequestParam(value = "client_id", required = false) String clientId,
             @RequestParam(value = "redirect_uri", required = false) String redirectUri,
             @RequestParam(value = "state", required = false) String state,
@@ -30,8 +30,8 @@ public class IdLoginController {
     }
 
     @PostMapping(value = "/login", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> login(
-            @RequestBody Map<String, Object> body,
+    public IdCardLoginResponse login(
+            @RequestBody IdCardLoginRequest body,
             @RequestParam(value = "client_id", required = false) String clientId,
             @RequestParam(value = "redirect_uri", required = false) String redirectUri,
             @RequestParam(value = "state", required = false) String state,
@@ -40,4 +40,3 @@ public class IdLoginController {
         return idcardService.login(body, clientId, redirectUri, state, nonce, sessionId);
     }
 }
-            

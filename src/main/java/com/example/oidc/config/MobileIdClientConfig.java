@@ -1,4 +1,4 @@
-package com.example.oidc.service;
+package com.example.oidc.config;
 
 import ee.sk.mid.MidClient;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,14 +13,24 @@ import java.security.KeyStore;
 @Configuration
 public class MobileIdClientConfig {
 
+    @Value("${mid.client.host-url}")
+    private String midClientHostUrl;
+
+    @Value("${mid.client.relying-party-uuid}")
+    private String midClientRelyingPartyUUID;
+
+    @Value("${mid.client.relying-party-name}")
+    private String midClientRelyingPartyName;
+
+    @Value("${mid.client.trust-store}")
+    private String trustStore;
+
+    @Value("${mid.client.trust-store-password}")
+    private String trustStorePassword;
+
     @Bean
-    public MidClient midClient(@Value("${mid.client.host-url}") String midClientHostUrl,
-            @Value("${mid.client.relying-party-uuid}") String midClientRelyingPartyUUID,
-            @Value("${mid.client.relying-party-name}") String midClientRelyingPartyName,
-            @Value("${mid.client.trust-store}") String trustStore,
-            @Value("${mid.client.trust-store-password}") String trustStorePassword) {
+    public MidClient midClient() {
         try {
-            // Load trust store using absolute path
             Resource resource = new FileSystemResource(trustStore);
             KeyStore trustStoreInstance = KeyStore.getInstance("PKCS12");
             try (InputStream trustStoreStream = resource.getInputStream()) {

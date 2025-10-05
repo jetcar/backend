@@ -1,4 +1,4 @@
-package com.example.oidc.serialization;
+package com.example.oidc.config.serialization;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;

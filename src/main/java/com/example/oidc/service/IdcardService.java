@@ -1,26 +1,27 @@
 package com.example.oidc.service;
 
+import com.example.oidc.dto.IdCardChallengeResponse;
+import com.example.oidc.dto.IdCardLoginRequest;
+import com.example.oidc.dto.IdCardLoginResponse;
 import com.example.oidc.dto.IdCardSession;
 import com.example.oidc.storage.OidcClient;
 import com.example.oidc.storage.OidcClientRegistry;
 import com.example.oidc.storage.OidcSessionStore;
 import com.example.oidc.storage.UserInfo;
 import com.example.oidc.util.PersonalCodeHelper;
-import eu.webeid.security.authtoken.WebEidAuthToken;
+import com.example.oidc.util.RandomCodeGenerator;
 import eu.webeid.security.certificate.CertificateData;
 import eu.webeid.security.challenge.ChallengeNonce;
 import eu.webeid.security.challenge.ChallengeNonceGenerator;
 import eu.webeid.security.validator.AuthTokenValidator;
 import eu.webeid.security.exceptions.AuthTokenException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.http.ResponseEntity;
-
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 @Service
 public class IdcardService {
@@ -42,54 +43,54 @@ public class IdcardService {
         this.oidcSessionStore = oidcSessionStore;
     }
 
-    public Map<String, Object> createChallenge(
+    public IdCardChallengeResponse createChallenge(
             String clientId,
             String redirectUri,
             String state,
             String nonce) {
         ChallengeNonce challengeNonce = challengeNonceGenerator.generateAndStoreNonce();
-        Map<String, Object> resp = new HashMap<>();
-        String sessionId = java.util.UUID.randomUUID().toString();
+        IdCardChallengeResponse resp = new IdCardChallengeResponse();
+        String sessionId = RandomCodeGenerator.generateRandomCode();
         oidcSessionStore.storeIdCardSession(
                 sessionId,
                 new IdCardSession(false, challengeNonce.getBase64EncodedNonce()));
-        resp.put("nonce", challengeNonce.getBase64EncodedNonce());
-        resp.put("sessionId", sessionId);
+        resp.nonce = challengeNonce.getBase64EncodedNonce();
+        resp.sessionId = sessionId;
         return resp;
     }
 
-    public ResponseEntity<?> login(
-            Map<String, Object> body,
+    public IdCardLoginResponse login(
+            IdCardLoginRequest body,
             String clientId,
             String redirectUri,
             String state,
             String nonce,
-            String sessionId) throws CertificateEncodingException {
-        Map<String, Object> resp = new HashMap<>();
-        Object authTokenObj = body.get("authToken");
-        WebEidAuthToken authToken = null;
+            String sessionId) {
+        IdCardLoginResponse resp = new IdCardLoginResponse();
+        Object authTokenObj = body.getAuthToken();
+        eu.webeid.security.authtoken.WebEidAuthToken authToken = null;
         if (authTokenObj instanceof Map) {
             try {
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 String json = mapper.writeValueAsString(authTokenObj);
-                authToken = mapper.readValue(json, WebEidAuthToken.class);
+                authToken = mapper.readValue(json, eu.webeid.security.authtoken.WebEidAuthToken.class);
             } catch (Exception e) {
-                resp.put("error", "Invalid authToken format");
-                resp.put("message", e.getMessage());
-                return ResponseEntity.badRequest().body(resp);
+                resp.error = "Invalid authToken format";
+                resp.message = e.getMessage();
+                return resp;
             }
         }
         if (authToken == null) {
-            resp.put("error", "Missing or invalid authToken");
-            return ResponseEntity.badRequest().body(resp);
+            resp.error = "Missing or invalid authToken";
+            return resp;
         }
 
         IdCardSession idCardSession = null;
         if (sessionId != null && !sessionId.isBlank()) {
             idCardSession = oidcSessionStore.getIdCardSession(sessionId);
             if (idCardSession == null) {
-                resp.put("error", "Session not found or expired");
-                return ResponseEntity.badRequest().body(resp);
+                resp.error = "Session not found or expired";
+                return resp;
             }
         }
 
@@ -97,44 +98,53 @@ public class IdcardService {
         try {
             certificate = authTokenValidator.validate(authToken, idCardSession.getChallengeNonce());
         } catch (AuthTokenException e) {
-            resp.put("error", "Web eID token validation failed");
-            resp.put("message", e.getMessage());
-            return ResponseEntity.status(401).body(resp);
+            resp.error = "Web eID token validation failed";
+            resp.message = e.getMessage();
+            return resp;
         } catch (Exception e) {
-            resp.put("error", "Unexpected error");
-            resp.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(resp);
+            resp.error = "Unexpected error";
+            resp.message = e.getMessage();
+            return resp;
         }
-
-        String country = CertificateData.getSubjectCountryCode(certificate).orElseThrow();
-        String subject = CertificateData.getSubjectIdCode(certificate).orElseThrow()
-                .replaceAll("PNO", "")
-                .replaceAll(country + "-", "");
-        String givenName = CertificateData.getSubjectGivenName(certificate).orElseThrow();
-        String surname = CertificateData.getSubjectSurname(certificate).orElseThrow();
-        LocalDate dateOfBirth = PersonalCodeHelper.getDateOfBirth(subject);
+        Optional<String> country;
+        Optional<String> subject;
+        Optional<String> givenName;
+        Optional<String> surname;
+        LocalDate dateOfBirth;
+        try {
+            country = CertificateData.getSubjectCountryCode(certificate);
+            Optional<String> rawSubject = CertificateData.getSubjectIdCode(certificate);
+            subject = rawSubject.map(s -> s.replaceAll("PNO", "").replaceAll(country.orElse("") + "-", ""));
+            givenName = CertificateData.getSubjectGivenName(certificate);
+            surname = CertificateData.getSubjectSurname(certificate);
+            dateOfBirth = PersonalCodeHelper.getDateOfBirth(subject.get());
+        } catch (CertificateEncodingException e) {
+            resp.error = "Invalid certificate";
+            return resp;
+        }
 
         String certBase64;
         try {
             certBase64 = java.util.Base64.getEncoder().encodeToString(certificate.getEncoded());
         } catch (Exception e) {
-            resp.put("error", "Failed to encode certificate");
-            resp.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(resp);
+            resp.error = "Failed to encode certificate";
+            resp.message = e.getMessage();
+            return resp;
         }
 
         OidcClient client = clientRegistry.isValidClient(clientId, redirectUri);
         if (client == null) {
-            resp.put("error", "Invalid client or redirect_uri");
-            return ResponseEntity.badRequest().body(resp);
+            resp.error = "Invalid client or redirect_uri";
+            return resp;
         }
 
-        String code = java.util.UUID.randomUUID().toString();
+        // Replace UUID with secure random code
+        String code = RandomCodeGenerator.generateRandomCode();
         UserInfo user = new UserInfo(
-                subject,
-                givenName,
-                surname,
-                country,
+                subject.get(),
+                givenName.get(),
+                surname.get(),
+                country.get(),
                 dateOfBirth,
                 null,
                 nonce);
@@ -146,7 +156,8 @@ public class IdcardService {
         if (state != null) {
             redirect.append("&state=").append(state);
         }
-        resp.put("redirectUrl", redirect.toString());
-        return ResponseEntity.ok(resp);
+        resp.redirectUrl = redirect.toString();
+        return resp;
     }
 }
+       
