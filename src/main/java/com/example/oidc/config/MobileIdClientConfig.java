@@ -22,10 +22,10 @@ public class MobileIdClientConfig {
     @Value("${mid.client.relying-party-name}")
     private String midClientRelyingPartyName;
 
-    @Value("${mid.client.trust-store}")
+    @Value("${mid.client.api-trust-store}")
     private String trustStore;
 
-    @Value("${mid.client.trust-store-password}")
+    @Value("${mid.client.api-trust-store-password}")
     private String trustStorePassword;
 
     @Bean
